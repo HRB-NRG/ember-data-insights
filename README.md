@@ -9,7 +9,7 @@ gross revenue opportunity per MW.
 
 ## What it shows
 
-Five views, all driven by the same sidebar filters (date range + countries):
+Six views, all driven by the same sidebar filters (date range + countries):
 
 1. **Volatility trend** — Smoothed line chart of daily swings per country, with
    an adjustable rolling-average window (1–30 days) and macro-event annotations.
@@ -20,7 +20,11 @@ Five views, all driven by the same sidebar filters (date range + countries):
 4. **BESS revenue** — Models a 1–4 hour battery doing daily price arbitrage and
    ranks markets by gross €/MW/year, with an optional minimum-spread dispatch
    rule and a monthly revenue trend.
-5. **Data** — Filtered table of daily peak / trough / swing / mean prices and
+5. **Hydrogen producer** — A virtual electrolyser that runs only in hours where
+   the day-ahead price is at or below an adjustable switch-on price. Shows the
+   capacity factor, the electricity cost per kg of H₂, and a market ranking, so
+   you can see where cheap power makes green hydrogen most attractive.
+6. **Data** — Filtered table of daily peak / trough / swing / mean prices and
    per-duration spreads, with a CSV download button.
 
 The default date range is the most recent 12 months in the dataset.

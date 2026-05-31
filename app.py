@@ -82,25 +82,25 @@ st.markdown(
 st.markdown(
     f"""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
 
-        /* Base body text — Inter Light everywhere by default */
+        /* Base body text — Inter Regular everywhere by default */
         html, body, [class*="css"], .stMarkdown, .stMarkdown p, .stMarkdown li,
         .stCaption, label, .stRadio, .stSelectbox, .stMultiSelect, .stSlider,
         div[data-testid="stSidebar"] *, .stTabs, .stDataFrame,
         .stExpander, .stAlert {{
             font-family: 'Inter', sans-serif !important;
-            font-weight: 300;
+            font-weight: 400;
         }}
 
-        /* Section sub-headers stay Inter but a touch heavier for hierarchy */
+        /* Section sub-headers — Inter Bold for hierarchy */
         h2, h3, h4, h5, h6 {{
             font-family: 'Inter', sans-serif !important;
-            font-weight: 500;
+            font-weight: 700;
             letter-spacing: -0.01em;
         }}
 
-        /* Main title — Inter Bold in accent teal */
+        /* Main title — Inter Bold in the accent colour */
         h1 {{
             font-family: 'Inter', sans-serif !important;
             font-weight: 700;
@@ -110,16 +110,16 @@ st.markdown(
 
         .main .block-container {{ padding-top: 2rem; padding-bottom: 3rem; max-width: 1400px; }}
 
-        /* Metric numbers — Inter Medium (500), accent green.
-           Streamlit's internal CSS forces bold; we override with maximum
-           specificity by targeting the test-id AND every nested element type. */
+        /* Metric numbers — Inter Bold, accent colour. Streamlit's internal CSS
+           forces a weight; we override with maximum specificity by targeting the
+           test-id AND every nested element type. */
         div[data-testid="stMetricValue"],
         div[data-testid="stMetricValue"] div,
         div[data-testid="stMetricValue"] p,
         div[data-testid="stMetricValue"] span,
         div[data-testid="stMetricValue"] > * {{
             font-family: 'Inter', sans-serif !important;
-            font-weight: 500 !important;
+            font-weight: 700 !important;
             color: {COLOR_ACCENT} !important;
             font-synthesis-weight: none !important;
             -webkit-font-smoothing: antialiased;
@@ -133,7 +133,7 @@ st.markdown(
         div[data-testid="stMetricLabel"] span,
         div[data-testid="stMetricLabel"] > * {{
             font-family: 'Inter', sans-serif !important;
-            font-weight: 300 !important;
+            font-weight: 400 !important;
         }}
         [data-testid="stMetric"] {{
             background: {COLOR_SURFACE};
@@ -159,7 +159,7 @@ st.markdown(
         .stTabs [aria-selected="true"] {{
             background: {COLOR_ACCENT} !important;
             color: {COLOR_BG} !important;
-            font-weight: 500;
+            font-weight: 700;
         }}
         div[data-testid="stDataFrame"] {{
             background: {COLOR_SURFACE};
@@ -220,6 +220,9 @@ EXPECTED_COLUMNS = {
 
 # BESS battery durations we pre-compute spread capture for. Confirmed by user: 1, 2, 3, 4 hours.
 BESS_DURATIONS = [1, 2, 3, 4]
+
+# Sorted hourly-price columns retained per day (ascending, NaN-padded to 24).
+HOUR_COLS = [f"H_{i:02d}" for i in range(24)]
 
 
 def _nhour_spread(hourly_prices: list, n: int) -> float:
@@ -304,9 +307,12 @@ def load_and_aggregate(source) -> tuple[pd.DataFrame, dict]:
         raise ValueError("No usable rows found in the data.")
 
     # Build the final DataFrame. For each day with enough coverage, compute
-    # daily aggregates + the N-hour spreads for each BESS duration.
+    # daily aggregates + the N-hour spreads for each BESS duration. We also keep
+    # the day's hourly prices, sorted ascending and padded to 24 slots, so the
+    # hydrogen tab can count how many hours fall below a runtime threshold.
     keys, peaks, troughs, means, hours_list, swings_list = [], [], [], [], [], []
     spread_cols: dict[int, list] = {n: [] for n in BESS_DURATIONS}
+    sorted_hours_rows: list = []  # each row: 24 floats, sorted asc, NaN-padded
 
     for key, prices in prices_by_day.items():
         n_hours = len(prices)
@@ -320,6 +326,8 @@ def load_and_aggregate(source) -> tuple[pd.DataFrame, dict]:
         swings_list.append(peaks[-1] - troughs[-1])
         for n in BESS_DURATIONS:
             spread_cols[n].append(_nhour_spread(prices, n))
+        sp = sorted(prices)[:24]  # cap at 24 (a DST fall-back day can have 25)
+        sorted_hours_rows.append(sp + [float("nan")] * (24 - len(sp)))
 
     if not keys:
         raise ValueError("No days with sufficient hourly coverage (≥20 of 24 hours).")
@@ -338,6 +346,11 @@ def load_and_aggregate(source) -> tuple[pd.DataFrame, dict]:
     )
     for n in BESS_DURATIONS:
         daily[f"Spread_{n}h"] = spread_cols[n]
+
+    # Sorted hourly prices in fixed columns H_00..H_23 (ascending, NaN-padded).
+    # Used by the hydrogen tab to count hours below a chosen switch-on price.
+    hourly = pd.DataFrame(sorted_hours_rows, columns=HOUR_COLS)
+    daily = pd.concat([daily.reset_index(drop=True), hourly], axis=1)
 
     metadata = {
         "total_rows": total_rows,
@@ -638,8 +651,8 @@ st.divider()
 # ---------------------------------------------------------------------------
 # Tabs for the four views
 # ---------------------------------------------------------------------------
-tab_ts, tab_heat, tab_rank, tab_bess, tab_data = st.tabs(
-    ["📈 Volatility trend", "🗓️ Calendar heatmap", "🏆 Market ranking", "💰 BESS revenue", "📋 Data"]
+tab_ts, tab_heat, tab_rank, tab_bess, tab_h2, tab_data = st.tabs(
+    ["📈 Volatility trend", "🗓️ Calendar heatmap", "🏆 Market ranking", "💰 BESS revenue", "💧 Hydrogen producer", "📋 Data"]
 )
 
 
@@ -1118,6 +1131,211 @@ with tab_bess:
             after losses, still have roughly 2× the net opportunity. The ranking is more
             defensible than the absolute number — point this at your client as a relative
             attractiveness map, not as a P&L forecast.
+            """
+        )
+
+
+# --- Virtual hydrogen producer ---------------------------------------------
+with tab_h2:
+    st.subheader("When is power cheap enough to make hydrogen?")
+    st.caption(
+        "A virtual electrolyser that switches ON only in the hours where the day-ahead "
+        "price sits at or below your chosen switch-on price, and idles otherwise. Use it "
+        "to compare where cheap power makes green hydrogen most attractive. Figures are "
+        "the electricity-cost component only — no capex, stack, water or compression."
+    )
+
+    col_p, col_eff = st.columns([1, 1])
+    with col_p:
+        h2_threshold = st.slider(
+            "Switch-on price (€/MWh)",
+            min_value=-50,
+            max_value=200,
+            value=40,
+            step=5,
+            help=(
+                "The electrolyser runs in any hour where the day-ahead price is at or "
+                "below this level. Lower = pickier (cheaper power, fewer running hours); "
+                "higher = runs more often at higher average cost. Negative values capture "
+                "only the hours when power is so abundant that prices go below zero."
+            ),
+        )
+    with col_eff:
+        h2_efficiency = st.slider(
+            "Electricity needed per kg H₂ (kWh/kg)",
+            min_value=45,
+            max_value=70,
+            value=52,
+            step=1,
+            help=(
+                "Specific energy consumption of the electrolyser. ~52 kWh/kg is typical "
+                "for a modern PEM/alkaline stack (the theoretical LHV floor is ~39.4 "
+                "kWh/kg). Lower = more efficient = more hydrogen per MWh."
+            ),
+        )
+
+    # Sorted hourly prices for the filtered rows: shape (n_days, 24), NaN-padded.
+    present_hour_cols = [c for c in HOUR_COLS if c in filtered.columns]
+    if not present_hour_cols:
+        st.error(
+            "Hourly price columns (H_00..H_23) aren't present. This tab needs the "
+            "hourly detail retained by load_and_aggregate — re-run with current code."
+        )
+        st.stop()
+
+    mat = filtered[present_hour_cols].to_numpy(dtype=float)
+    running = mat <= h2_threshold                 # NaN <= x is False, so pads don't count
+    run_hours_day = running.sum(axis=1)           # hours the asset ran that day
+    elec_cost_day = np.where(running, mat, 0.0).sum(axis=1)  # € per MW that day (1 MWh/h)
+
+    h2 = pd.DataFrame(
+        {
+            "Country": filtered["Country"].to_numpy(),
+            "Date": filtered["Date"].to_numpy(),
+            "ObsHours": filtered["Hours"].to_numpy(dtype=float),
+            "RunHours": run_hours_day.astype(float),
+            "ElecCost": elec_cost_day,
+        }
+    )
+    h2["Energy_MWh"] = h2["RunHours"]  # 1 MW × RunHours = MWh consumed
+    h2["H2_kg"] = h2["Energy_MWh"] * 1000.0 / h2_efficiency  # MWh → kWh → kg
+
+    # Per-country aggregation over the selected window
+    g = (
+        h2.groupby("Country")
+        .agg(
+            days=("Date", "nunique"),
+            obs_hours=("ObsHours", "sum"),
+            run_hours=("RunHours", "sum"),
+            energy=("Energy_MWh", "sum"),
+            cost=("ElecCost", "sum"),
+            h2_kg=("H2_kg", "sum"),
+        )
+        .reset_index()
+    )
+    g["Capacity_factor"] = np.where(g["obs_hours"] > 0, g["run_hours"] / g["obs_hours"] * 100, 0.0)
+    g["Avg_price_running"] = np.where(g["energy"] > 0, g["cost"] / g["energy"], np.nan)
+    g["Eur_per_kg"] = np.where(g["h2_kg"] > 0, g["cost"] / g["h2_kg"], np.nan)
+    g["Annual_H2_per_MW"] = np.where(g["days"] > 0, g["h2_kg"] * 365.0 / g["days"], 0.0)
+
+    # Overall, pooled across the selected markets
+    tot_obs = h2["ObsHours"].sum()
+    tot_run = h2["RunHours"].sum()
+    tot_energy = h2["Energy_MWh"].sum()
+    tot_cost = h2["ElecCost"].sum()
+    tot_h2 = h2["H2_kg"].sum()
+    overall_cf = (tot_run / tot_obs * 100) if tot_obs > 0 else 0.0
+    overall_avg_price = (tot_cost / tot_energy) if tot_energy > 0 else float("nan")
+    overall_eur_per_kg = (tot_cost / tot_h2) if tot_h2 > 0 else float("nan")
+    overall_annual_h2 = (tot_h2 / len(h2) * 365.0) if len(h2) else 0.0  # kg/MW/yr, market avg
+
+    if tot_run == 0:
+        st.warning(
+            f"⚙️ At a €{h2_threshold}/MWh switch-on price, the electrolyser would never "
+            f"run in the selected window. Raise the switch-on price or widen the date range."
+        )
+    else:
+        st.info(
+            f"⚙️ At a switch-on price of **€{h2_threshold}/MWh**, the electrolyser would have "
+            f"run **{overall_cf:.0f}%** of the time across the selected markets, paying an "
+            f"average of **€{overall_avg_price:,.0f}/MWh** for the power it consumed — an "
+            f"electricity cost of **€{overall_eur_per_kg:,.2f}/kg H₂**."
+        )
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric(
+        "Capacity factor",
+        f"{overall_cf:.0f}%",
+        help="Share of observed hours the electrolyser would have been running.",
+    )
+    m2.metric(
+        "Electricity cost of H₂",
+        f"€{overall_eur_per_kg:,.2f} /kg" if tot_h2 > 0 else "—",
+        help=(
+            "Power cost only, per kilogram of hydrogen, at the chosen switch-on price and "
+            "efficiency. Excludes capex, stack, water and compression."
+        ),
+    )
+    m3.metric(
+        "Hydrogen output",
+        f"{overall_annual_h2:,.0f} kg/MW/yr" if tot_h2 > 0 else "—",
+        help="Average annual hydrogen per MW of electrolyser across the selected markets.",
+    )
+
+    if tot_run > 0:
+        # Cheapest electricity cost of hydrogen by market (lower is better)
+        st.markdown("##### Electricity cost of hydrogen by market")
+        rank_h2 = g.dropna(subset=["Eur_per_kg"]).sort_values("Eur_per_kg", ascending=False)
+        fig_h2cost = px.bar(
+            rank_h2,
+            x="Eur_per_kg",
+            y="Country",
+            orientation="h",
+            text=rank_h2["Eur_per_kg"].round(2),
+            color="Eur_per_kg",
+            color_continuous_scale=ACCENT_SCALE,
+        )
+        fig_h2cost.update_traces(
+            texttemplate="€%{text:,.2f}",
+            textposition="outside",
+            cliponaxis=False,
+            hovertemplate="%{y}<br>Electricity cost: €%{x:,.2f} /kg H₂<extra></extra>",
+        )
+        fig_h2cost.update_layout(
+            coloraxis_showscale=False,
+            xaxis_title="€/kg H₂ (electricity only — lower is better)",
+            yaxis_title="",
+        )
+        apply_chart_theme(fig_h2cost, height=max(350, 28 * len(rank_h2) + 60))
+        st.plotly_chart(fig_h2cost, width="stretch")
+
+        # Running hours / capacity factor by market
+        st.markdown("##### Running hours (capacity factor) by market")
+        rank_cf = g.sort_values("Capacity_factor", ascending=True)
+        fig_cf = px.bar(
+            rank_cf,
+            x="Capacity_factor",
+            y="Country",
+            orientation="h",
+            text=rank_cf["Capacity_factor"].round(0),
+            color="Capacity_factor",
+            color_continuous_scale=ACCENT_SCALE,
+        )
+        fig_cf.update_traces(
+            texttemplate="%{text:.0f}%",
+            textposition="outside",
+            cliponaxis=False,
+            hovertemplate="%{y}<br>Running %{x:.0f}% of hours<extra></extra>",
+        )
+        fig_cf.update_layout(
+            coloraxis_showscale=False,
+            xaxis_title="Share of hours running (%)",
+            yaxis_title="",
+        )
+        apply_chart_theme(fig_cf, height=max(350, 28 * len(rank_cf) + 60))
+        st.plotly_chart(fig_cf, width="stretch")
+
+    with st.expander("📐 Methodology and limits"):
+        st.markdown(
+            f"""
+            **What this calculates:** For every hour in the selected window we compare the
+            day-ahead price to your switch-on price of **€{h2_threshold}/MWh**. In hours at
+            or below it, a 1 MW electrolyser runs flat out — consuming 1 MWh and producing
+            **{1000.0 / h2_efficiency:.1f} kg** of H₂ at **{h2_efficiency} kWh/kg** — and in
+            every other hour it idles. Capacity factor is running hours ÷ observed hours;
+            the electricity cost per kg is total power spend ÷ total hydrogen.
+
+            **What's deliberately excluded:** electrolyser capex and stack replacement, water
+            and treatment, compression and storage, grid fees, taxes and levies, ramp and
+            minimum-load constraints, and any hydrogen sale price. This is the
+            **electricity-cost component of green hydrogen only** — the part the power market
+            drives — not a full levelised cost.
+
+            **Why it's still a useful siting signal:** the excluded costs are broadly similar
+            across markets, so a country offering many cheap hours keeps its advantage once
+            they're added. Read the ranking as relative attractiveness, not a business case.
+            On days with negative prices the electrolyser is effectively paid to consume, which
+            can pull the electricity cost per kg below zero.
             """
         )
 
