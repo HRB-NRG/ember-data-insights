@@ -58,11 +58,11 @@ st.set_page_config(
 # ---------------------------------------------------------------------------
 
 # Theme colors (kept in sync with .streamlit/config.toml)
-COLOR_BG = "#1F2739"
-COLOR_SURFACE = "#363D4D"
-COLOR_ACCENT = "#00C490"
-COLOR_TEXT = "#E8ECF2"
-COLOR_MUTED = "#8B92A3"
+COLOR_BG = "#FFFFFF"       # page background — white
+COLOR_SURFACE = "#FBF6F1"  # cards / chart panels — warm off-white
+COLOR_ACCENT = "#EA580C"   # primary accent — orange
+COLOR_TEXT = "#1C1917"     # near-black warm text
+COLOR_MUTED = "#78716C"    # warm grey for secondary text
 
 # Open Graph metadata — controls preview cards when the URL is shared on
 # LinkedIn, Slack, WhatsApp, X, etc. Streamlit doesn't expose <head> directly,
@@ -139,14 +139,14 @@ st.markdown(
             background: {COLOR_SURFACE};
             padding: 1rem 1.25rem;
             border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.04);
+            border: 1px solid rgba(0,0,0,0.08);
         }}
 
         .stPlotlyChart {{
             background: {COLOR_SURFACE};
             border-radius: 10px;
             padding: 0.75rem;
-            border: 1px solid rgba(255,255,255,0.04);
+            border: 1px solid rgba(0,0,0,0.08);
         }}
         div[data-testid="stSidebarUserContent"] {{ padding-top: 1rem; }}
         .stTabs [data-baseweb="tab-list"] {{ gap: 4px; }}
@@ -173,14 +173,14 @@ st.markdown(
 
 
 # Shared Plotly layout — applied to every chart so theming stays consistent
-def apply_dark_theme(fig, height=None):
+def apply_chart_theme(fig, height=None):
     fig.update_layout(
         paper_bgcolor=COLOR_SURFACE,
         plot_bgcolor=COLOR_SURFACE,
         font=dict(color=COLOR_TEXT, family="Inter, sans-serif", size=12),
         margin=dict(l=10, r=10, t=10, b=10),
-        xaxis=dict(gridcolor="rgba(255,255,255,0.06)", zerolinecolor="rgba(255,255,255,0.1)"),
-        yaxis=dict(gridcolor="rgba(255,255,255,0.06)", zerolinecolor="rgba(255,255,255,0.1)"),
+        xaxis=dict(gridcolor="rgba(0,0,0,0.08)", zerolinecolor="rgba(0,0,0,0.18)"),
+        yaxis=dict(gridcolor="rgba(0,0,0,0.08)", zerolinecolor="rgba(0,0,0,0.18)"),
         legend=dict(bgcolor="rgba(0,0,0,0)"),
     )
     if height is not None:
@@ -188,20 +188,21 @@ def apply_dark_theme(fig, height=None):
     return fig
 
 
-# Color sequence built around the accent — used for multi-country line charts
+# Discrete warm palette for multi-country line charts. Chosen to stay in the
+# red→orange→yellow family while keeping enough contrast on a white background
+# (very pale yellows are avoided because they wash out against white).
 ACCENT_SEQUENCE = [
-    "#00C490", "#7DD3C0", "#F5C76A", "#E68C7C", "#A78BFA",
-    "#60A5FA", "#FB923C", "#F472B6", "#34D399", "#FBBF24",
-    "#94A3B8", "#22D3EE",
+    "#DC2626", "#EA580C", "#F97316", "#D97706", "#CA8A04",
+    "#B91C1C", "#FB923C", "#92400E", "#EAB308", "#F43F5E",
+    "#C2410C", "#A16207",
 ]
 
-# Monochrome scale built from the accent — used for heatmap & bar gradients
+# Sequential scale for heatmap & bar gradients: low = yellow → orange → red = high.
 ACCENT_SCALE = [
-    [0.0, "#1F2739"],
-    [0.25, "#1E4A45"],
-    [0.5, "#1A6E5A"],
-    [0.75, "#069672"],
-    [1.0, "#00C490"],
+    [0.0, "#FBBF24"],   # amber-yellow (low)
+    [0.4, "#FB923C"],   # light orange
+    [0.7, "#F97316"],   # orange
+    [1.0, "#DC2626"],   # red (high)
 ]
 
 
@@ -582,7 +583,7 @@ bess_sentence = (
 st.markdown(
     f"""
     <div style="
-        background: linear-gradient(135deg, rgba(0, 196, 144, 0.08) 0%, rgba(0, 196, 144, 0.02) 100%);
+        background: linear-gradient(135deg, rgba(234, 88, 12, 0.10) 0%, rgba(234, 88, 12, 0.02) 100%);
         border-left: 3px solid {COLOR_ACCENT};
         border-radius: 8px;
         padding: 1rem 1.25rem;
@@ -708,7 +709,7 @@ with tab_ts:
         if start_ts <= event_date <= end_ts:
             fig_ts.add_vline(
                 x=event_date,
-                line=dict(color="rgba(255,255,255,0.25)", width=1, dash="dot"),
+                line=dict(color="rgba(0,0,0,0.30)", width=1, dash="dot"),
             )
             fig_ts.add_annotation(
                 x=event_date,
@@ -716,13 +717,13 @@ with tab_ts:
                 yref="y",
                 text=label,
                 showarrow=False,
-                font=dict(color="rgba(255,255,255,0.55)", size=10),
+                font=dict(color="rgba(0,0,0,0.55)", size=10),
                 align="center",
-                bgcolor="rgba(31, 39, 57, 0.7)",
+                bgcolor="rgba(255, 255, 255, 0.85)",
                 borderpad=4,
             )
 
-    apply_dark_theme(fig_ts, height=500)
+    apply_chart_theme(fig_ts, height=500)
     st.plotly_chart(fig_ts, width="stretch")
 
     with st.expander("ℹ️ How to read this"):
@@ -797,7 +798,7 @@ with tab_heat:
             xaxis=dict(title="", tickangle=-45, nticks=20),
             yaxis=dict(title="", autorange="reversed"),
         )
-        apply_dark_theme(fig_heat, height=320)
+        apply_chart_theme(fig_heat, height=320)
         # Override the right margin so the colorbar isn't clipped
         fig_heat.update_layout(margin=dict(l=10, r=110, t=30, b=10))
         st.plotly_chart(fig_heat, width="stretch")
@@ -869,7 +870,7 @@ with tab_rank:
         xaxis_title=f"{label} (€/MWh)",
         yaxis_title="",
     )
-    apply_dark_theme(fig_rank, height=max(350, 28 * len(ranking) + 60))
+    apply_chart_theme(fig_rank, height=max(350, 28 * len(ranking) + 60))
     fig_rank.update_traces(
         texttemplate="€%{text:,.0f}",
         textposition="outside",
@@ -892,7 +893,7 @@ with tab_rank:
         yaxis_title="Daily swing (€/MWh)",
         xaxis_title="",
     )
-    apply_dark_theme(fig_box, height=420)
+    apply_chart_theme(fig_box, height=420)
     fig_box.update_xaxes(tickangle=-30)
     st.plotly_chart(fig_box, width="stretch")
 
@@ -1054,7 +1055,7 @@ with tab_bess:
         xaxis_title=f"€/MW/year (gross, {duration}-hour battery, 365 cycles)",
         yaxis_title="",
     )
-    apply_dark_theme(fig_bess, height=max(350, 28 * len(ranking_for_plot) + 60))
+    apply_chart_theme(fig_bess, height=max(350, 28 * len(ranking_for_plot) + 60))
     st.plotly_chart(fig_bess, width="stretch")
 
     # Monthly revenue trend — useful for seeing when in the year revenue is concentrated
@@ -1084,7 +1085,7 @@ with tab_bess:
         hovermode="x unified",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
     )
-    apply_dark_theme(fig_monthly, height=420)
+    apply_chart_theme(fig_monthly, height=420)
     st.plotly_chart(fig_monthly, width="stretch")
 
     with st.expander("📐 Methodology and limits"):
