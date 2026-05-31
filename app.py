@@ -31,7 +31,7 @@ import streamlit as st
 # Branding — set these to whatever you like; they thread through the page
 # title, social-share preview cards, and the footer.
 # ---------------------------------------------------------------------------
-BRAND_NAME = "Your Brand"  # <-- change this to your project / company name
+BRAND_NAME = "HRB-NRG"  # <-- change this to your project / company name
 BRAND_TAGLINE = "market intelligence for the energy transition"
 
 # ---------------------------------------------------------------------------
