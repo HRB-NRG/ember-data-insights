@@ -188,13 +188,13 @@ def apply_chart_theme(fig, height=None):
     return fig
 
 
-# Discrete warm palette for multi-country line charts. Chosen to stay in the
-# red→orange→yellow family while keeping enough contrast on a white background
-# (very pale yellows are avoided because they wash out against white).
+# Discrete palette for multi-country line charts — original multi-hue set,
+# chosen so lines stay easy to tell apart. (The heatmap and ranking bars use the
+# warm ACCENT_SCALE below; this sequence only colours the line charts.)
 ACCENT_SEQUENCE = [
-    "#DC2626", "#EA580C", "#F97316", "#D97706", "#CA8A04",
-    "#B91C1C", "#FB923C", "#92400E", "#EAB308", "#F43F5E",
-    "#C2410C", "#A16207",
+    "#00C490", "#7DD3C0", "#F5C76A", "#E68C7C", "#A78BFA",
+    "#60A5FA", "#FB923C", "#F472B6", "#34D399", "#FBBF24",
+    "#94A3B8", "#22D3EE",
 ]
 
 # Sequential scale for heatmap & bar gradients: low = yellow → orange → red = high.
@@ -1214,6 +1214,7 @@ with tab_h2:
         .reset_index()
     )
     g["Capacity_factor"] = np.where(g["obs_hours"] > 0, g["run_hours"] / g["obs_hours"] * 100, 0.0)
+    g["Run_hours_per_year"] = np.where(g["days"] > 0, g["run_hours"] * 365.0 / g["days"], 0.0)
     g["Avg_price_running"] = np.where(g["energy"] > 0, g["cost"] / g["energy"], np.nan)
     g["Eur_per_kg"] = np.where(g["h2_kg"] > 0, g["cost"] / g["h2_kg"], np.nan)
     g["Annual_H2_per_MW"] = np.where(g["days"] > 0, g["h2_kg"] * 365.0 / g["days"], 0.0)
@@ -1225,6 +1226,7 @@ with tab_h2:
     tot_cost = h2["ElecCost"].sum()
     tot_h2 = h2["H2_kg"].sum()
     overall_cf = (tot_run / tot_obs * 100) if tot_obs > 0 else 0.0
+    overall_run_hours_year = (tot_run / len(h2) * 365.0) if len(h2) else 0.0  # h/MW/yr, market avg
     overall_avg_price = (tot_cost / tot_energy) if tot_energy > 0 else float("nan")
     overall_eur_per_kg = (tot_cost / tot_h2) if tot_h2 > 0 else float("nan")
     overall_annual_h2 = (tot_h2 / len(h2) * 365.0) if len(h2) else 0.0  # kg/MW/yr, market avg
@@ -1237,16 +1239,16 @@ with tab_h2:
     else:
         st.info(
             f"⚙️ At a switch-on price of **€{h2_threshold}/MWh**, the electrolyser would have "
-            f"run **{overall_cf:.0f}%** of the time across the selected markets, paying an "
-            f"average of **€{overall_avg_price:,.0f}/MWh** for the power it consumed — an "
-            f"electricity cost of **€{overall_eur_per_kg:,.2f}/kg H₂**."
+            f"run for about **{overall_run_hours_year:,.0f} hours per year** across the selected "
+            f"markets, paying an average of **€{overall_avg_price:,.0f}/MWh** for the power it "
+            f"consumed — an electricity cost of **€{overall_eur_per_kg:,.2f}/kg H₂**."
         )
 
     m1, m2, m3 = st.columns(3)
     m1.metric(
-        "Capacity factor",
-        f"{overall_cf:.0f}%",
-        help="Share of observed hours the electrolyser would have been running.",
+        "Running hours",
+        f"{overall_run_hours_year:,.0f} h/yr",
+        help="Number of hours per year the electrolyser would have been running, at the chosen switch-on price.",
     )
     m2.metric(
         "Electricity cost of H₂",
@@ -1289,27 +1291,27 @@ with tab_h2:
         apply_chart_theme(fig_h2cost, height=max(350, 28 * len(rank_h2) + 60))
         st.plotly_chart(fig_h2cost, width="stretch")
 
-        # Running hours / capacity factor by market
-        st.markdown("##### Running hours (capacity factor) by market")
-        rank_cf = g.sort_values("Capacity_factor", ascending=True)
+        # Running hours per year by market
+        st.markdown("##### Running hours per year by market")
+        rank_cf = g.sort_values("Run_hours_per_year", ascending=True)
         fig_cf = px.bar(
             rank_cf,
-            x="Capacity_factor",
+            x="Run_hours_per_year",
             y="Country",
             orientation="h",
-            text=rank_cf["Capacity_factor"].round(0),
-            color="Capacity_factor",
+            text=rank_cf["Run_hours_per_year"].round(0),
+            color="Run_hours_per_year",
             color_continuous_scale=ACCENT_SCALE,
         )
         fig_cf.update_traces(
-            texttemplate="%{text:.0f}%",
+            texttemplate="%{text:,.0f} h",
             textposition="outside",
             cliponaxis=False,
-            hovertemplate="%{y}<br>Running %{x:.0f}% of hours<extra></extra>",
+            hovertemplate="%{y}<br>Running %{x:,.0f} hours/year<extra></extra>",
         )
         fig_cf.update_layout(
             coloraxis_showscale=False,
-            xaxis_title="Share of hours running (%)",
+            xaxis_title="Running hours per year",
             yaxis_title="",
         )
         apply_chart_theme(fig_cf, height=max(350, 28 * len(rank_cf) + 60))
