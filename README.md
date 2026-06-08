@@ -1,84 +1,36 @@
-# European Power Market Volatility — BESS Revenue Dashboard
+## Data Loading
 
-Interactive Streamlit dashboard for analysing daily peak-to-trough (intraday)
-electricity price swings across European countries, and estimating the gross
-arbitrage revenue a battery (BESS) could have earned in each market.
+The app automatically figures out where to get its data, checking in this order:
 
-The headline use case: **see where to deploy battery storage next**, ranked by
-gross revenue opportunity per MW.
+1. **Local file** — Looks for `all_countries.csv` in the root dir (fastest, best for dev).
+2. **Auto-download** — Grabs Ember's public dataset and caches it for 24h.
+3. **Manual upload** — Fallback option via the sidebar (accepts CSV or ZIP).
 
-## What it shows
+So, you can just clone and run it — it'll download what it needs on the first run. If you want to skip the download step entirely, just drop your own `all_countries.csv` in the folder.
 
-Six views, all driven by the same sidebar filters (date range + countries):
+## Customization
 
-1. **Volatility trend** — Smoothed line chart of daily swings per country, with
-   an adjustable rolling-average window (1–30 days) and macro-event annotations.
-2. **Calendar heatmap** — Week-by-weekday grid of swings for any one country,
-   making weekly patterns and outlier days visible at a glance.
-3. **Market ranking** — Horizontal bar chart of countries ranked by mean,
-   median, max, or 95th-percentile swing, plus a box plot of the distribution.
-4. **BESS revenue** — Models a 1–4 hour battery doing daily price arbitrage and
-   ranks markets by gross €/MW/year, with an optional minimum-spread dispatch
-   rule and a monthly revenue trend.
-5. **Hydrogen producer** — A virtual electrolyser that runs only in hours where
-   the day-ahead price is at or below an adjustable switch-on price. Shows the
-   capacity factor, the electricity cost per kg of H₂, and a market ranking, so
-   you can see where cheap power makes green hydrogen most attractive.
-6. **Data** — Filtered table of daily peak / trough / swing / mean prices and
-   per-duration spreads, with a CSV download button.
+- **Branding:** Tweak `BRAND_NAME` and `BRAND_TAGLINE` at the top of `app.py`. This updates the page title, social previews, and footer.
+- **Logo:** Drop a `logo.png` next to `app.py` and it'll automatically show up in the header. (Leave it out if you don't want one — the UI handles it gracefully.)
+- **Theme/Colors:** Modify `.streamlit/config.toml`. Be sure to update the `COLOR_*` variables in `app.py` if you want the charts to match your new theme.
+- **Fonts:** It uses Inter via Google Fonts. No local font files needed.
 
-The default date range is the most recent 12 months in the dataset.
+## Expected CSV Schema
 
-## Setup
+If you're bringing your own data, format it like this:
 
-```bash
-pip install -r requirements.txt
-```
+| Column | Example |
+| --- | --- |
+| Country | Austria |
+| ISO3 Code | AUT |
+| Datetime (UTC) | 2015-01-01 00:00:00 |
+| Datetime (Local) | 2015-01-01 01:00:00 |
+| Price (EUR/MWhe) | 22.34 |
 
-## Run
+The app groups by **Datetime (Local)** because intraday peaks and troughs are driven by local timezones.
 
-```bash
-streamlit run app.py
-```
+## Data & License
 
-The app resolves its data source automatically, in this order:
+The default dataset is pulled from Ember (European Wholesale Electricity Price Data), published under CC BY 4.0.
 
-1. **Local file** — `all_countries.csv` next to `app.py` (fastest, for dev).
-2. **Auto-download** — Ember's public price dataset, fetched and cached for 24h.
-3. **Manual upload** — sidebar uploader (CSV or zip), as a final fallback.
-
-So on a fresh machine you can just run it — it will download the data on first
-use. Dropping a local `all_countries.csv` in the folder skips the download.
-
-## Make it yours
-
-- **Name / tagline:** edit `BRAND_NAME` and `BRAND_TAGLINE` near the top of
-  `app.py`. They flow through the page title, social-share preview, and footer.
-- **Logo (optional):** drop a `logo.png` next to `app.py` and it appears in the
-  header automatically. No logo ships by default — the header looks fine
-  without one.
-- **Colours / theme:** edit `.streamlit/config.toml` (and the matching `COLOR_*`
-  constants in `app.py` if you want the charts to follow).
-- **Fonts:** the app uses Inter (loaded from Google Fonts, open-licensed). No
-  font files are bundled.
-
-## Expected CSV schema
-
-| Column              | Example                |
-|---------------------|------------------------|
-| `Country`           | `Austria`              |
-| `ISO3 Code`         | `AUT`                  |
-| `Datetime (UTC)`    | `2015-01-01 00:00:00`  |
-| `Datetime (Local)`  | `2015-01-01 01:00:00`  |
-| `Price (EUR/MWhe)`  | `22.34`                |
-
-The app uses `Datetime (Local)` for grouping, since intraday peaks and troughs
-are local-clock phenomena.
-
-## Data & attribution
-
-Data comes from [Ember](https://ember-energy.org/) — European Wholesale
-Electricity Price Data — published under
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Attribution is built
-into the sidebar's "About the data" expander and the page footer, so you're
-licence-compliant out of the box. Keep that attribution if you redistribute.
+The required attribution is already built into the sidebar and footer, so you're license-compliant right out of the box. Please keep that attribution intact if you fork or redistribute the app.
