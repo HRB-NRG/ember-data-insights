@@ -1,17 +1,3 @@
-"""
-European Intraday Energy Price Swing Dashboard
-==============================================
-Interactive Streamlit app analysing intraday (peak-to-trough) price swings
-across European countries over the past 12 months.
-
-Run:
-    pip install -r requirements.txt
-    streamlit run app.py
-
-The app looks for `all_countries.csv` in the same folder as this script.
-If not found, it offers a file uploader fallback.
-"""
-
 from __future__ import annotations
 
 import io
@@ -27,25 +13,15 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-# ---------------------------------------------------------------------------
-# Branding — set these to whatever you like; they thread through the page
-# title, social-share preview cards, and the footer.
-# ---------------------------------------------------------------------------
-BRAND_NAME = "HRB-NRG"  # <-- change this to your project / company name
+BRAND_NAME = "HRB Energy" 
 BRAND_TAGLINE = "market intelligence for the energy transition"
 
-# ---------------------------------------------------------------------------
 # File paths
-# ---------------------------------------------------------------------------
 SCRIPT_DIR = Path(__file__).parent if "__file__" in globals() else Path.cwd()
-# Optional logo: drop a `logo.png` next to this file and it appears in the
-# header automatically. No logo ships with the app — the header works fine
-# without one.
+
 LOGO_PATH = SCRIPT_DIR / "logo.png"
 
-# ---------------------------------------------------------------------------
 # Page configuration
-# ---------------------------------------------------------------------------
 st.set_page_config(
     page_title="European Intraday Price Swings",
     page_icon=str(LOGO_PATH) if LOGO_PATH.exists() else "⚡",
@@ -53,10 +29,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ---------------------------------------------------------------------------
-# Typography — Inter from Google Fonts (open-licensed, loaded in the CSS below)
-# ---------------------------------------------------------------------------
 
+# Typography — Inter from Google Fonts
 # Theme colors (kept in sync with .streamlit/config.toml)
 COLOR_BG = "#FFFFFF"       # page background — white
 COLOR_SURFACE = "#FBF6F1"  # cards / chart panels — warm off-white
@@ -206,9 +180,7 @@ ACCENT_SCALE = [
 ]
 
 
-# ---------------------------------------------------------------------------
 # Data loading
-# ---------------------------------------------------------------------------
 EXPECTED_COLUMNS = {
     "Country",
     "ISO3 Code",
@@ -380,10 +352,7 @@ def download_and_extract_zip(url: str) -> bytes:
         with zf.open(csv_members[0]) as f:
             return f.read()
 
-
-# ---------------------------------------------------------------------------
 # Data source resolution
-# ---------------------------------------------------------------------------
 DEFAULT_CSV = SCRIPT_DIR / "all_countries.csv"
 EMBER_ZIP_URL = (
     "https://files.ember-energy.org/public-downloads/price/outputs/"
@@ -432,10 +401,7 @@ def resolve_data_source():
             return io.BytesIO(zf.read(csv_members[0]))
     return uploaded
 
-
-# ---------------------------------------------------------------------------
 # Header
-# ---------------------------------------------------------------------------
 if LOGO_PATH.exists():
     logo_col, title_col = st.columns([1, 9], vertical_alignment="center")
     with logo_col:
@@ -469,9 +435,7 @@ if swings.empty:
     st.stop()
 
 
-# ---------------------------------------------------------------------------
 # Sidebar controls — past 12 months window
-# ---------------------------------------------------------------------------
 data_max_date = swings["Date"].max()
 default_start = data_max_date - pd.DateOffset(months=12) + pd.Timedelta(days=1)
 data_min_date = swings["Date"].min()
@@ -515,8 +479,7 @@ end_ts = pd.Timestamp(end_date)
 
 countries_all = sorted(swings["Country"].unique())
 
-# Default selection — only include names that actually appear in the dataset,
-# so this stays robust if Ember changes the country list.
+# Default selection 
 PREFERRED_DEFAULTS = [
     "Netherlands",
     "Germany",
@@ -527,7 +490,7 @@ PREFERRED_DEFAULTS = [
 ]
 default_countries = [c for c in PREFERRED_DEFAULTS if c in countries_all]
 
-# Fallback if none of the preferred ones are present: pick the top-swing countries
+# Fallback if none of the preferred ones are present
 window_mask = (swings["Date"] >= start_ts) & (swings["Date"] <= end_ts)
 if not default_countries:
     default_countries = (
@@ -558,10 +521,7 @@ if filtered.empty:
     st.warning("No data in the selected range. Widen the filters.")
     st.stop()
 
-
-# ---------------------------------------------------------------------------
 # Top-line metrics
-# ---------------------------------------------------------------------------
 avg_swing = filtered["Swing"].mean()
 max_swing_val = filtered["Swing"].max()
 max_swing_row = filtered.loc[filtered["Swing"].idxmax()]
@@ -647,16 +607,13 @@ col4.metric(
 
 st.divider()
 
-
-# ---------------------------------------------------------------------------
 # Tabs for the four views
-# ---------------------------------------------------------------------------
 tab_ts, tab_heat, tab_rank, tab_bess, tab_h2, tab_data = st.tabs(
     ["📈 Volatility trend", "🗓️ Calendar heatmap", "🏆 Market ranking", "💰 BESS revenue", "💧 Hydrogen producer", "📋 Data"]
 )
 
 
-# --- Time series ------------------------------------------------------------
+# Time series
 with tab_ts:
     st.subheader("How is volatility evolving across markets?")
 
@@ -751,7 +708,7 @@ with tab_ts:
         )
 
 
-# --- Calendar heatmap -------------------------------------------------------
+# Calendar heatmap 
 with tab_heat:
     st.subheader("When does volatility happen?")
 
@@ -839,7 +796,7 @@ with tab_heat:
         )
 
 
-# --- Country ranking --------------------------------------------------------
+# Country ranking
 with tab_rank:
     st.subheader("Where is the opportunity biggest?")
     st.caption(
@@ -911,7 +868,7 @@ with tab_rank:
     st.plotly_chart(fig_box, width="stretch")
 
 
-# --- BESS revenue calculator ------------------------------------------------
+# BESS revenue calculator 
 with tab_bess:
     st.subheader("How much could a battery have earned?")
     st.caption(
@@ -1135,7 +1092,7 @@ with tab_bess:
         )
 
 
-# --- Virtual hydrogen producer ---------------------------------------------
+# Virtual hydrogen producer
 with tab_h2:
     st.subheader("When is power cheap enough to make hydrogen?")
     st.caption(
@@ -1342,7 +1299,7 @@ with tab_h2:
         )
 
 
-# --- Data table -------------------------------------------------------------
+# Data table 
 with tab_data:
     st.subheader("Daily aggregates · downloadable")
     st.caption("Filtered to your sidebar selection. Click columns to sort.")
@@ -1366,10 +1323,7 @@ with tab_data:
         mime="text/csv",
     )
 
-
-# ---------------------------------------------------------------------------
 # Footer
-# ---------------------------------------------------------------------------
 st.divider()
 
 # Branding block — driven by the BRAND_NAME / BRAND_TAGLINE constants at the top
